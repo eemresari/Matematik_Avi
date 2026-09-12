@@ -69,7 +69,7 @@ class MonotonicMs:
 
 
 def _draw_overlay(bgr, cfg, observations, sel, committed, present,
-                  mapped, fps, calibrated):
+                  mapped, fps, calibrated, cam_fps=0.0, inf_fps=0.0):
     h, w = bgr.shape[:2]
     ap = cfg.active_player
 
@@ -100,7 +100,8 @@ def _draw_overlay(bgr, cfg, observations, sel, committed, present,
     # Status bar.
     state_color = (0, 0, 255) if committed == FIST else (0, 200, 255)
     lines = [
-        f"FPS {fps:4.1f}   hands {len(observations)}   "
+        f"loop {fps:4.1f}  cam {cam_fps:4.1f}  infer {inf_fps:4.1f} fps   "
+        f"hands {len(observations)}   "
         f"{'CALIBRATED' if calibrated else 'NOT CALIBRATED (raw coords)'}",
         f"present={int(present)}  state={committed}  "
         f"mapped=({mapped[0]:.3f},{mapped[1]:.3f})",
@@ -140,6 +141,13 @@ def run_detector(cfg, preview: bool) -> str:
     last_rid = -1
     fps = 0.0
     fps_t = time.monotonic()
+    # Gerçek darboğazı görmek için üç ayrı hız: döngü (60 Hz'e kilitli, yanıltıcı),
+    # kamera kare hızı ve MediaPipe sonuç hızı (= merceğin gerçek güncelleme hızı).
+    stat_t = time.monotonic()
+    stat_cam = 0
+    stat_inf = 0
+    cam_fps = 0.0
+    inf_fps = 0.0
 
     _net = cfg.get("net", None)
     _transport = str(getattr(_net, "transport", "osc") if _net is not None else "osc").lower()
@@ -158,6 +166,7 @@ def run_detector(cfg, preview: bool) -> str:
                 time.sleep(0.01)
                 continue
 
+            stat_cam += 1
             recognizer.submit(frame.rgb, clock.now())
 
             # Run the pipeline only on a NEW inference result. The loop spins at
@@ -168,6 +177,7 @@ def run_detector(cfg, preview: bool) -> str:
             rid = recognizer.result_id
             if rid != last_rid:
                 last_rid = rid
+                stat_inf += 1
                 observations = recognizer.get_observations()
                 sel = selector.update(observations)
 
@@ -202,11 +212,20 @@ def run_detector(cfg, preview: bool) -> str:
             inst = 1.0 / max(now - fps_t, 1e-6)
             fps = 0.9 * fps + 0.1 * inst if fps else inst
             fps_t = now
+            if now - stat_t >= 2.0:
+                cam_fps = stat_cam / (now - stat_t)
+                inf_fps = stat_inf / (now - stat_t)
+                stat_cam = stat_inf = 0
+                stat_t = now
+                if not preview:
+                    print(f"[stat] cam {cam_fps:4.1f} fps  infer {inf_fps:4.1f} fps  "
+                          f"hands {len(observations)}", flush=True)
 
             if preview:
                 bgr = cv2.cvtColor(frame.rgb, cv2.COLOR_RGB2BGR)
                 _draw_overlay(bgr, cfg, observations, sel, committed, present,
-                              mapped, fps, homography.is_calibrated)
+                              mapped, fps, homography.is_calibrated,
+                              cam_fps, inf_fps)
                 cv2.imshow(win, bgr)
                 key = cv2.waitKey(1) & 0xFF
                 if key == 27:               # ESC

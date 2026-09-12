@@ -28,6 +28,10 @@ class WebcamSource(CameraSource):
         # MJPG + a high FPS request lets the webcam hit its real 30/60 fps ceiling
         # instead of the ~15-20 fps raw-YUY2 / auto-exposure default (measured: this
         # doubled capture from 16 -> 30 fps, which is the lens update rate).
+        # NOT every camera honours the MJPG request under DSHOW: some stay raw YUY2,
+        # and then a non-native size like 960x540 saturates USB -> ~5 fps (measured).
+        # A native 16:9 mode (640x360) gives a stable 30 fps on such cameras; the
+        # startup line below prints the negotiated fourcc so this is visible.
         self._cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         self._cap.set(cv2.CAP_PROP_FPS, 60)
         self._cap.set(cv2.CAP_PROP_FRAME_WIDTH, int(cfg.camera.request_width))
@@ -38,6 +42,11 @@ class WebcamSource(CameraSource):
         # The driver may negotiate a different resolution than requested - read back.
         self._w = int(self._cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         self._h = int(self._cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fcc = int(self._cap.get(cv2.CAP_PROP_FOURCC)) & 0xFFFFFFFF
+        fcc_s = "".join(chr((fcc >> (8 * i)) & 0xFF) if 32 <= ((fcc >> (8 * i)) & 0xFF) < 127
+                        else "?" for i in range(4))
+        print(f"[camera] index={index} negotiated {self._w}x{self._h} fourcc={fcc_s} "
+              f"(requested {int(cfg.camera.request_width)}x{int(cfg.camera.request_height)} MJPG)")
 
     @property
     def resolution(self) -> tuple[int, int]:

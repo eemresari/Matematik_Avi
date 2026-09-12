@@ -12,8 +12,8 @@
   "camera": {
     "source": "webcam",
     "device_index": 0,
-    "request_width": 960,
-    "request_height": 540,
+    "request_width": 640,
+    "request_height": 360,
     "flip_horizontal": true
   },
   "detection": {
