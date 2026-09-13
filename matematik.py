@@ -52,26 +52,19 @@ def _bos_port(tercih: int) -> int:
     return tercih
 
 
-def _statik_sunucu(port: int) -> threading.Thread:
-    """`web/` ağacını servis eden arka plan sunucusu.
+def _statik_sunucu(port: int, paket=None) -> threading.Thread:
+    """Oyunu servis eden arka plan sunucusu.
 
-    G4 bunu şifreli `web.pak`'i BELLEKTEN servis eden `tools/serve.py` ile
-    değiştirecek; o zamana kadar diskten.
+    `paket`: lisans kapısından geçince bellekte çözülmüş `web.pak` sözlüğü
+    (dondurulmuş build). None ise `web/` diskten servis edilir (kaynak).
     """
-    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+    from tools import serve
 
     kok = paths.web_root()
 
-    class Handler(SimpleHTTPRequestHandler):
-        def __init__(self, *a, **kw):
-            super().__init__(*a, directory=kok, **kw)
-
-        def log_message(self, *a):      # kiosk'ta her istek için satır basma
-            pass
-
     def calis():
         try:
-            ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+            serve.main([str(port), kok], paket=paket)
         except Exception as exc:
             print(f"[matematik] statik sunucu durdu: {exc!r}")
 
