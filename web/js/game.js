@@ -311,6 +311,26 @@
   G.onFrame = onFrame;
   G.ghostTarget = ghostTarget;
 
+  // ---- demo filigranı ----
+  // Demo lisansında sahnenin köşesine kurum adı + son tarih + anahtar no
+  // yazılır (matematik.py lisans kapısı belirler, tools/serve.py
+  // /filigran.json ile verir). Kalıcı lisansta ve kaynaktan çalıştırmada metin
+  // boş gelir -> hiçbir şey çizilmez. Tek seferlik okuma; sunucu yoksa sessizce
+  // geçilir (file:// ile açılan tasarım önizlemeleri de çalışmaya devam etsin).
+  function filigraniCiz() {
+    fetch("/filigran.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const metin = j && typeof j.metin === "string" ? j.metin.trim() : "";
+        if (!metin) return;
+        const el = document.createElement("div");
+        el.className = "filigran";
+        el.textContent = metin;
+        (document.getElementById("stage") || document.body).appendChild(el);
+      })
+      .catch(() => {});
+  }
+
   // ---- başlat ----
   function init() {
     screens.attract = $("screen-attract");
@@ -325,6 +345,7 @@
     });
     MA.input.start();
     MA.lens.start();
+    filigraniCiz();
     // ESC -> oyunu/kiosk penceresini kapat (launcher arka süreçleri de durdurur)
     window.addEventListener("keydown", (e) => {
       if (e.key === "Escape") { try { window.close(); } catch (_) {} }

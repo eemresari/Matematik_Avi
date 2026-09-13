@@ -187,6 +187,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--space);color:v
 #mh-reset.armed{transform:scale(1.12);filter:brightness(1.3);box-shadow:0 0 22px rgba(255,74,214,0.5);}
 
 #mh-field{position:absolute;inset:0;z-index:20;}
+
+/* Demo filigrani (game.js /filigran.json'dan doldurur; kalici lisansta yok).
+   SAG-ALT: sol-alt kosede input.js'in "FARE MODU" rozeti duruyor.
+   z-index 85 = kalibrasyon overlay'inin (80) ustu, mercegin (90) alti. */
+.filigran{position:absolute;right:2.2cqmin;bottom:1.8cqmin;z-index:85;
+  pointer-events:none;user-select:none;
+  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:1.6cqmin;
+  letter-spacing:0.06em;color:rgba(234,246,255,0.5);
+  text-shadow:0 1px 2px rgba(0,0,0,0.85);}
 .token{position:absolute;transform:translate(-50%,-50%);width:8.6cqmin;height:8.6cqmin;display:flex;align-items:center;justify-content:center;opacity:0;will-change:opacity,transform;}
 .token .t-glow{position:absolute;inset:-32%;border-radius:50%;background:radial-gradient(circle,rgba(120,210,255,0.5),transparent 68%);opacity:0;pointer-events:none;}
 .token .t-ring{position:absolute;inset:2%;border-radius:50%;border:1.5px solid transparent;pointer-events:none;}

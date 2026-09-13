@@ -5,11 +5,13 @@ tarayıcı) yerine tek bir program; EXE'nin de giriş noktası budur.
 
 Akış:
 
-    paths.ensure_seeded()  ->  statik sunucu  ->  boş WS portu seç
+    lisans kapısı (yalnız EXE)  ->  web.pak'i belleğe çöz
+      ->  paths.ensure_seeded()  ->  statik sunucu  ->  boş WS portu seç
       ->  Chrome --app --start-fullscreen  ->  dedektör (ANA thread)
 
-Lisans kapısı G6'da `_main()`'in en başına girecek — kameradan, porttan ve
-sunucudan önce.
+Lisans kapısı EN BAŞTA: kamera yoklanmadan, sunucu kalkmadan, port tutulmadan.
+Kaynaktan çalıştırmada kapı yoktur (`paths.FROZEN` False) — geliştirme döngüsü
+bozulmaz ve `web/` zaten diskte durur.
 
 Tarayıcı dedektörden ÖNCE açılıyor çünkü `web/js/input.js` WebSocket'e üstel
 backoff ile yeniden bağlanıyor; dedektör hazır olunca kendiliğinden bağlanır.
@@ -155,9 +157,109 @@ def _olumcul(baslik: str, mesaj: str) -> None:
         pass
 
 
+class LisansReddedildi(SystemExit):
+    """Lisans kapısı geçilemedi; uygulama açılmadan durur."""
+
+
+def filigran_metni(yuk) -> str:
+    """Sahnenin köşesinde görünecek metin. Boş dize = filigran gösterilmez.
+
+    KALICI LİSANSTA BOŞ: satılan üründe alıcının adı ekranda durmaz.
+    Havuz anahtarında kurum adı yoktur; izlenebilirlik `#anahtar_no` ile
+    Lisans Merkezi'ndeki kayıt üzerinden sağlanır.
+    """
+    import datetime as _dt
+
+    if not yuk or yuk.get("tip") != "demo":
+        return ""
+    kurum = (yuk.get("kurum") or "").strip() or "Demo"
+    parcalar = [kurum]
+    son = yuk.get("son_kullanim_ts")
+    if son:
+        parcalar.append(_dt.datetime.fromtimestamp(son).strftime("%d.%m.%Y"))
+    parcalar.append(f"#{yuk.get('anahtar_no', '?')}")
+    return " — ".join(parcalar)
+
+
+def lisans_kapisi(donmus: bool):
+    """İçerik anahtarını dön; kaynaktan çalıştırmada None.
+
+    KAMERADAN ÖNCE: dedektör açılışta kamerayı AÇAR; lisansı olmayan birinin
+    donanımına dokunmak gereksiz. Statik sunucudan da önce: sunucu yalnız bu
+    anahtarla çözülen paketi servis eder.
+
+    `--kalibrasyon` DA KAPIDAN GEÇER: kalibrasyon kamerayı açar ve sonucu veri
+    köküne yazar; lisanssız makinede yapılacak işi yoktur. (SprayTarih'te
+    `--rapor` muaftı — o hiçbir donanıma dokunmuyor, ziyaretçi sayısı basıyor.)
+
+    Pencere kapatılırsa uygulama DURUR: "anahtar girmedim ama oyun açıldı"
+    durumu, korunmak istenen şeyin ta kendisidir.
+    """
+    import base64
+
+    from tools import serve
+
+    if not donmus:
+        return None
+
+    import lisans_durum
+    import lisans_ekrani
+    import parmak_izi
+
+    try:
+        izi = parmak_izi.al()
+    except parmak_izi.ParmakIziYok as e:
+        raise LisansReddedildi(f"Matematik Avi acilamadi: {e}") from None
+
+    kayit = lisans_durum.oku()
+    durum, yuk = lisans_ekrani.durumu_belirle(kayit, izi)
+
+    if durum != "gecerli":
+        yuk = lisans_ekrani.ac(lisans_ekrani.DURUMLAR[durum])
+        if not yuk:
+            raise LisansReddedildi(
+                "Matematik Avi acilamadi: gecerli bir lisans yok.")
+        kayit = lisans_durum.oku()
+
+    if kayit:
+        lisans_durum.saati_ilerlet(kayit)
+    serve.FILIGRAN = filigran_metni(yuk)
+    return base64.b64decode(yuk["icerik_anahtari"])
+
+
+def _paketi_yukle(icerik_anahtari):
+    """`web.pak`'i BELLEĞE çöz; kaynaktan çalıştırmada ya da anahtarsız None.
+
+    Diske hiçbir şey yazılmaz. None dönerse `tools/serve.py` diskten servis
+    eder — bu yalnız kaynaktan çalıştırmada doğru; donmuş build'de `web/`
+    ağacı zaten yoktur, yani lisanssız içerik görünmez.
+    """
+    if not paths.FROZEN or icerik_anahtari is None:
+        return None
+    import web_paket
+
+    ham_yol = os.path.join(paths.resource_root(), "web.pak")
+    try:
+        with open(ham_yol, "rb") as f:
+            dosyalar = web_paket.coz(f.read(), icerik_anahtari)
+    except Exception as exc:      # noqa: BLE001
+        raise LisansReddedildi(
+            f"Matematik Avi acilamadi: icerik paketi cozulemedi ({exc!r}).\n"
+            "Kurulum bozuk olabilir; kurucuyu yeniden calistirin.") from None
+    print(f"[matematik] paket bellege alindi: {len(dosyalar)} dosya")
+    return dosyalar
+
+
 def main(argv=None) -> int:
     try:
         return _main(argv)
+    except LisansReddedildi as e:
+        # SystemExit'ten ONCE yakalanir. Konsolsuz EXE'de `raise SystemExit(mesaj)`
+        # metni HICBIR YERE basmaz: parmak izi okunamadiginda ya da paket
+        # cozulemediginde alici cift tiklar, hicbir sey olmaz, elinde tek ipucu
+        # kalmaz. Kapinin gerekcesi mesaj kutusuyla soylenir.
+        _olumcul("Matematik Avi baslatilamadi", str(e))
+        return 1
     except SystemExit:
         raise
     except Exception:
@@ -180,6 +282,11 @@ def _main(argv=None) -> int:
     ap.add_argument("--http-port", type=int, default=HTTP_PORT)
     args = ap.parse_args(argv)
 
+    # Lisans kapısı HER ŞEYDEN ÖNCE: kamera yoklanmadan, sunucu kalkmadan.
+    # Kaynaktan çalıştırmada None döner ve akış eskisi gibi devam eder.
+    icerik_anahtari = lisans_kapisi(paths.FROZEN)
+    paket = _paketi_yukle(icerik_anahtari)
+
     # İlk çalıştırma: yazılabilir veri kökünü kur, config.json'ı tohumla.
     paths.ensure_seeded()
 
@@ -189,7 +296,7 @@ def _main(argv=None) -> int:
         return dedektor.main(["--calibrate"])
 
     port = _bos_port(args.http_port)
-    _statik_sunucu(port)
+    _statik_sunucu(port, paket)
 
     ws_port = _bos_port(WS_PORT)
     if ws_port != WS_PORT:

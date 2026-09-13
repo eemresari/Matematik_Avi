@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Matematik Avı kiosk statik sunucusu — tarayıcı önbelleği KAPALI.
 
-İki iş yapar:
+Üç iş yapar:
 
 1. **Şifreli `web.pak`'i BELLEKTEN servis eder.** Dondurulmuş build'de `web/`
    ağacı diskte yoktur; lisans kapısından geçince paket bellekte çözülür ve
@@ -9,15 +9,27 @@
 2. **`Cache-Control: no-store`.** Stok `python -m http.server` tarayıcının
    script'leri önbelleğe almasına izin veriyor; sergi güncellendikten sonra
    kiosk eski sürümü göstermeye devam edebiliyordu.
+3. **`GET /filigran.json`.** Demo lisansının izlenebilirlik metni; oyun açılışta
+   bir kez okur. Paketten bağımsızdır — kaynaktan çalıştırmada da yanıt verir,
+   boş metinle.
 
 Kullanım:
     python tools/serve.py [PORT] [DIZIN]
 """
 
+import json
 import os
 import sys
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+# Demo lisansinda sahnenin kosesine yazilacak metin; kalici lisansta ve
+# kaynaktan calistirmada bos. matematik.py lisans kapisindan sonra doldurur,
+# web/js/game.js acilista GET /filigran.json ile bir kez okur. WS protokoluna
+# KONMADI: `ws_sender.py` docstring'i onu {x,y,present,gesture} diye sabit ilan
+# etti ve bu sunucu ayni surecte, her zaman ayakta.
+FILIGRAN = ""
+FILIGRAN_YOLU = "/filigran.json"
 
 # Elle MIME tablosu: `mimetypes` Windows kayıt defterine bakar ve bazı
 # makinelerde `.js`'i `text/plain` döner — tarayıcı script'i çalıştırmaz, kiosk
@@ -93,6 +105,13 @@ class OnbelleksizHandler(SimpleHTTPRequestHandler):
         self.do_GET()
 
     def do_GET(self):
+        # Filigran paketten BAGIMSIZ: kaynaktan calistirmada bellek None'dir ve
+        # istek diskteki web/'e dusup 404 olurdu.
+        if self.path.split("?")[0] == FILIGRAN_YOLU:
+            govde = json.dumps({"metin": FILIGRAN},
+                               ensure_ascii=False).encode("utf-8")
+            self._gonder(200, MIME[".json"], govde)
+            return
         if self.bellek is None:
             super().do_GET()
             return
