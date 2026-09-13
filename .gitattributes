@@ -1,0 +1,5 @@
+# lisans_bicim.py Lisans Merkezi'ndeki kaynagin BAYT BAYT kopyasidir;
+# urunler.senkron_durumu() SHA-256 ile denetler ve ayrisirsa dagitilmis keyler
+# dogrulanamaz hale gelir. core.autocrlf=true checkout'ta CRLF'e cevirip
+# kopyayi ayrisik gosteriyordu (aican'da yasandi); git bu dosyaya dokunmasin.
+lisans_bicim.py text eol=lf
