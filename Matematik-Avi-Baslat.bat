@@ -1,5 +1,15 @@
 @echo off
 REM Matematik Avi - cift tiklayinca kiosk modunu baslatir.
-REM start-kiosk.ps1'i ExecutionPolicy engeline takilmadan calistirir.
-REM Parametreler buradan da gecirilebilir, orn:  Matematik-Avi-Baslat.bat -DetectorHost 192.168.1.50
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0start-kiosk.ps1" %*
+REM Tek giris noktasi: matematik.py (statik sunucu + tarayici + dedektor).
+REM
+REM Eski yol start-kiosk.ps1 duruyor ve calismaya devam ediyor; matematik.py
+REM sergide kanitlanana kadar yedek olarak tutuluyor.
+REM
+REM Secenekler:  --pencere  --tarayicisiz  --onizleme  --kalibrasyon
+cd /d "%~dp0"
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" matematik.py %*
+) else (
+  python matematik.py %*
+)
+if errorlevel 1 pause

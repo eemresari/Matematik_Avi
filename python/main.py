@@ -17,9 +17,21 @@ Hotkeys in the preview window:  ESC = quit,  C = recalibrate.
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 import time
 
+# Depo kökünü sys.path'e al ki `import paths` hem `cd python && python main.py`
+# ile doğrudan çalıştırınca hem de matematik.py üzerinden çalışsın. python/ bir
+# paket değil (modüller birbirini düz isimle import ediyor), bu yüzden kökü
+# eklemenin başka yolu yok.
+_KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _KOK not in sys.path:
+    sys.path.insert(0, _KOK)
+
 import cv2
+
+import paths
 
 from config import load_config
 from camera import create_camera
@@ -247,16 +259,42 @@ def run_detector(cfg, preview: bool) -> str:
             cv2.destroyAllWindows()
 
 
-def main() -> int:
+def _yollari_coz(cfg) -> None:
+    """config.json'daki göreli yolları mutlaklaştır.
+
+    Bu dosyadaki yollar eskiden çalışma dizinine göre çözülüyordu, yani dedektör
+    ancak `cd python` yapıldıktan sonra çalışıyordu. matematik.py depo kökünden,
+    EXE ise Program Files'tan başlatılıyor; ikisinde de CWD farklı. Yolların
+    sahibi artık paths.py.
+    """
+    mp = cfg.detection.model_path
+    if not os.path.isabs(mp):
+        cfg.detection.model_path = paths.model_path(os.path.basename(mp))
+    cfg.calibration.file = paths.calib_path(cfg.calibration.file)
+
+
+def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Gesture Exhibit detector")
-    parser.add_argument("--config", default="config.json")
+    parser.add_argument("--config", default=None,
+                        help="varsayilan: paths.config_path()")
     parser.add_argument("--calibrate", action="store_true",
                         help="run 4-corner projector calibration and exit")
     parser.add_argument("--no-preview", action="store_true",
                         help="run without the OpenCV preview window")
-    args = parser.parse_args()
+    parser.add_argument("--ws-port", type=int, default=None,
+                        help="config.json'daki net.ws_port'u ez (matematik.py "
+                             "bos port secip hem buraya hem tarayiciya bildirir)")
+    args = parser.parse_args(argv)
 
-    cfg = load_config(args.config)
+    cfg = load_config(args.config or paths.config_path())
+    _yollari_coz(cfg)
+
+    # Port çakışırsa matematik.py boş bir tane seçer; dedektör ile tarayıcı aynı
+    # porta bakmazsa köprü sessizce ölür (G0'da tam olarak bu görüldü).
+    if args.ws_port is not None:
+        net = cfg.get("net", None)
+        if net is not None:
+            net.ws_port = args.ws_port
 
     if args.calibrate:
         run_calibration(cfg)
