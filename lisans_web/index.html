@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Matematik Avi — Lisans</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 28px 32px; background: #12151a; color: #e8ecf1;
+         font: 14px/1.55 "Segoe UI", system-ui, sans-serif; }
+  /* Urun adi GOVDEDE gorunur: pywebview penceresinin basligini
+     create_window belirliyor, HTML <title>'i degil. Yalniz <title>'a
+     yazilsaydi musteri hangi oyunun anahtarinin istendigini goremezdi. */
+  .urun { font-size: 11px; letter-spacing: .22em; color: #4a90d9;
+          font-weight: 700; margin: 0 0 6px; }
+  h1 { font-size: 19px; margin: 0 0 4px; }
+  p.alt { margin: 0 0 20px; color: #93a0b0; }
+  #mesaj { background: #1d2129; border-left: 3px solid #4a90d9;
+           padding: 10px 14px; border-radius: 4px; margin-bottom: 20px; }
+  #mesaj.hata { border-left-color: #d9534f; color: #ffb3b0; }
+  textarea { width: 100%; height: 108px; box-sizing: border-box; resize: none;
+             background: #0d1014; color: #e8ecf1; border: 1px solid #2b313b;
+             border-radius: 4px; padding: 9px 11px; font-family: Consolas,
+             monospace; font-size: 12px; }
+  .dugmeler { display: flex; gap: 10px; margin-top: 16px; }
+  button { flex: 1; padding: 11px; border: 0; border-radius: 4px;
+           font-size: 14px; cursor: pointer; background: #2b313b;
+           color: #e8ecf1; }
+  button.ana { background: #4a90d9; color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+</style>
+
+<div class="urun">MATEMATIK AVI</div>
+<h1>Lisans anahtari</h1>
+<p class="alt">Anahtar dosyanizi secin ya da size gonderilen metni yapistirin.</p>
+
+<div id="mesaj">{{MESAJ}}</div>
+
+<textarea id="metin" placeholder="LDN1...." spellcheck="false"></textarea>
+
+<div class="dugmeler">
+  <button id="dosya">Lisans dosyasi sec...</button>
+  <button id="onayla" class="ana">Anahtari kullan</button>
+</div>
+
+<script>
+  const kutu = document.getElementById("metin");
+  const mesaj = document.getElementById("mesaj");
+  const dugmeler = [document.getElementById("dosya"),
+                    document.getElementById("onayla")];
+
+  function sonuc(c) {
+    dugmeler.forEach(d => d.disabled = false);
+    if (c && c.ok) return;                 // pencere Python tarafinda kapanir
+    if (c && c.mesaj === "") return;       // dosya secimi iptal edildi
+    mesaj.textContent = (c && c.mesaj) || "Bu anahtar gecerli degil.";
+    mesaj.className = "hata";
+  }
+
+  // pywebview kopruyu ASENKRON enjekte eder: pencere cizildikten birkac yuz
+  // milisaniye sonra. O aralikta tiklanirsa window.pywebview tanimsizdir ve
+  // sozVeren() SENKRON patlar -> .then zinciri hic kurulmaz -> catch calismaz
+  // -> iki dugme de KALICI kilitli kalir ve ekranda hicbir aciklama olmaz.
+  // Musterinin tek caresi programi kapatip acmak olurdu. Iki koruma:
+  // kopru yoksa ayri bir hata firlat, ve cagriyi Promise'a sar.
+  function api() {
+    if (!window.pywebview || !window.pywebview.api) throw new Error("hazir-degil");
+    return window.pywebview.api;
+  }
+
+  function calistir(sozVeren) {
+    dugmeler.forEach(d => d.disabled = true);
+    Promise.resolve().then(sozVeren).then(sonuc).catch(
+      (e) => sonuc(e && e.message === "hazir-degil"
+        ? { ok: false, mesaj: "Pencere henuz hazirlaniyor; bir saniye sonra tekrar deneyin." }
+        : null));
+  }
+
+  document.getElementById("dosya").onclick =
+    () => calistir(() => api().dosya_sec());
+  document.getElementById("onayla").onclick =
+    () => calistir(() => api().metin_gonder(kutu.value));
+</script>

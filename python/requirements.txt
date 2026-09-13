@@ -9,4 +9,5 @@ numpy>=1.26               # array math (also a mediapipe dependency)
 python-osc>=1.8           # OSC 1.0 encoding that Unity/OscJack expects
 websockets>=12            # tarayıcı WebSocket köprüsü (net/ws_sender.py); SADECE config.json net.transport = ws|both iken gerekir
 cryptography>=42          # web.pak AES-256-GCM (web_paket.py) + Ed25519 lisans imza doğrulaması
+pywebview>=5,<6           # lisans ekrani (lisans_ekrani.ac); EXE'de WebView2 runtime'ina baglanir
 # One Euro Filter is implemented in-repo (smoothing/one_euro.py) - no extra dependency.
