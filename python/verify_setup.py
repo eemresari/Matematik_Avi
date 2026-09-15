@@ -18,7 +18,7 @@ from selection import ActivePlayerSelector
 from gesture import GestureFSM, FIST, SEARCHING
 from smoothing import CursorSmoother
 from mapping import Homography
-from net import OscSender
+from net import WsSender
 
 
 def main() -> int:
@@ -70,7 +70,7 @@ def main() -> int:
     assert state == FIST, "FSM should debounce a single open frame"
     print("GestureFSM debounce (enter/exit hysteresis) OK")
 
-    # 3. Smoothing + homography + OSC construct & run.
+    # 3. Smoothing + homography + WebSocket sender construct & run.
     sm = CursorSmoother(cfg.smoothing.min_cutoff, cfg.smoothing.beta,
                         cfg.smoothing.d_cutoff)
     t = time.monotonic()
@@ -80,9 +80,10 @@ def main() -> int:
     assert 0.0 <= nx <= 1.0 and 0.0 <= ny <= 1.0
     print(f"CursorSmoother + Homography OK (calibrated={homo.is_calibrated})")
 
-    osc = OscSender(cfg)
-    osc.send_hand(0.5, 0.5, True, FIST)   # localhost UDP send; no receiver needed
-    print(f"OscSender sent a /hand packet to {cfg.osc.host}:{cfg.osc.port} OK")
+    ws = WsSender(cfg)
+    ws.send_hand(0.5, 0.5, True, FIST)    # no client connected; fire-and-forget
+    ws.close()
+    print(f"WsSender started + closed a bridge on {cfg.net.ws_host}:{cfg.net.ws_port} OK")
 
     print("\nALL CHECKS PASSED - the Python detector is ready. "
           "Run:  python main.py")

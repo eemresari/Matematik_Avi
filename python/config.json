@@ -1,13 +1,8 @@
 {
-  "osc": {
-    "host": "127.0.0.1",
-    "port": 9000,
-    "send_rate_hz": 60
-  },
   "net": {
-    "transport": "ws",
     "ws_host": "0.0.0.0",
-    "ws_port": 8765
+    "ws_port": 8765,
+    "send_rate_hz": 60
   },
   "camera": {
     "source": "webcam",

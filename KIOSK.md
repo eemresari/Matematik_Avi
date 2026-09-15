@@ -22,13 +22,11 @@ python download_model.py                  # gesture_recognizer.task modelini ind
 > kurulu değil ya da paketler eksik demektir (VSCode eklentisiyle ilgisi yok). `Kurulum.bat`
 > bunu çözer; `Kamera-Ayarlari.bat` artık eksikse uyarı verip bekler.
 
-`python/config.json` içinde transport'u WebSocket'e al:
+`python/config.json` içindeki `net` bloğu WebSocket köprüsünün adresini taşır
+(tek taşıyıcı — Unity/OSC hattı kaldırıldı):
 ```json
-"net": { "transport": "ws", "ws_host": "0.0.0.0", "ws_port": 8765 }
+"net": { "ws_host": "0.0.0.0", "ws_port": 8765, "send_rate_hz": 60 }
 ```
-- `"ws"`  → sadece tarayıcı.
-- `"both"` → hem tarayıcı hem Unity (geçiş dönemi; OSC de açık kalır).
-- `"osc"` → eski Unity davranışı (tarayıcı veri ALMAZ).
 
 **Kalibrasyon** (projeksiyon + kamera yerleştirildikten sonra, bir kez): kökteki
 **`Kalibrasyon.bat`**'a çift tıkla (veya `cd python; python main.py --calibrate`).
@@ -105,18 +103,18 @@ Güvenlik duvarı: PC-A'da 8000 (HTTP) ve 8765 (WebSocket) portlarına LAN eriş
 
 | Belirti | Kontrol |
 |---|---|
-| Tarayıcıda sağ-altta "Bağlantı kesildi" | Detektör çalışıyor mu? `config.json` transport `ws`/`both` mı? Port 8765 açık mı? |
+| Tarayıcıda sağ-altta "Bağlantı kesildi" | Detektör çalışıyor mu? Port 8765 açık mı? |
 | Hiç veri yok | `cd python; python tools\ws_sniff.py` → kare sayısı 0 ise detektör göndermiyor (transport/preview/present). |
 | El bulunmuyor | Detektörü önizlemeyle aç (`python main.py`) — kutu yeşile dönüyor mu? Işık/mesafe yeterli mi? |
 | Mercek yanlış yerde | Kalibrasyon yap: **`Kalibrasyon.bat`** (9 hedef). Homografi Python'da kalır. |
 | Mercek sürekli kayıyor / sabit ofset | Kamera ya da `flip_horizontal`/çözünürlük kalibrasyondan beri değişmiş olabilir → detektör açılışta UYARI basar; yeniden kalibre et. |
-| Glyph'ler kutu (□) | Fontlar Google Fonts'tan gelir → **internet gerekir**. Çevrimdışı sergi için fontları yerel servis et (bkz. aşağıda). |
 | Tarayıcı bulunamadı | Chrome veya Edge kurulu olmalı. |
 | Mouse ile test | `http://localhost:8000/` (input parametresiz) → fare=el, tık=yumruk. |
+| Ctrl işe yaramıyor | Fare/el takibi geçişi `web/js/input.js`'te — `Escape` dışında bağlı tuş yok, çakışma beklenmez. |
 
-**Çevrimdışı fontlar:** Müze internetsizse `index.html`'deki Google Fonts `<link>`'i kaldırıp
-Baloo 2 + JetBrains Mono `.woff2` dosyalarını `web/fonts/`'a koyup `styles.css`'e `@font-face` ile
-gömün (gelecek iş; şu an çevrimiçi varsayılıyor).
+**Çevrimdışı fontlar:** Baloo 2 / JetBrains Mono / Space Grotesk `web/fonts/` altında
+gömülü gelir (`web/styles.css` → `@font-face`); Google Fonts CDN'ine bağımlılık yok,
+internetsiz sergide de tofu/kayıp glyph çıkmaz.
 
 ---
 

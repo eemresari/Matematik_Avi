@@ -2,7 +2,7 @@
 
 Pipeline per frame:
     camera -> HandLandmarker -> active-player selection -> gesture FSM
-           -> homography map -> One Euro smoothing -> OSC /hand -> Unity
+           -> homography map -> One Euro smoothing -> WebSocket -> browser
 
 Usage (run from this 'python/' folder):
     python download_model.py        # once, fetch the model
@@ -136,10 +136,10 @@ def run_detector(cfg, preview: bool) -> str:
     fsm = GestureFSM(cfg)
     smoother = CursorSmoother(cfg.smoothing.min_cutoff, cfg.smoothing.beta,
                               cfg.smoothing.d_cutoff)
-    sender = create_sender(cfg)   # OSC | WebSocket | her ikisi (config.json net.transport)
+    sender = create_sender(cfg)   # WebSocket köprüsü (net/ws_sender.py) — tek tasiyici
     clock = MonotonicMs()
 
-    frame_budget = 1.0 / float(cfg.osc.send_rate_hz)
+    frame_budget = 1.0 / float(cfg.net.send_rate_hz)
     win = cfg.preview.window_name
     if preview:
         cv2.namedWindow(win, cv2.WINDOW_NORMAL)
@@ -161,9 +161,7 @@ def run_detector(cfg, preview: bool) -> str:
     cam_fps = 0.0
     inf_fps = 0.0
 
-    _net = cfg.get("net", None)
-    _transport = str(getattr(_net, "transport", "osc") if _net is not None else "osc").lower()
-    print(f"[detector] running. transport={_transport}  OSC -> {cfg.osc.host}:{cfg.osc.port}  "
+    print(f"[detector] running. transport=ws  WS -> {cfg.net.ws_host}:{cfg.net.ws_port}  "
           f"calibrated={homography.is_calibrated}")
     try:
         while True:
@@ -184,8 +182,8 @@ def run_detector(cfg, preview: bool) -> str:
             # Run the pipeline only on a NEW inference result. The loop spins at
             # ~60 Hz but MediaPipe completes only ~20-30 Hz; feeding One Euro (and
             # ticking the selector/FSM frame counters) with duplicate frames is what
-            # defeated the smoothing and made the lens step. We still emit an OSC
-            # packet every loop (~60 Hz heartbeat) below so Unity never starves.
+            # defeated the smoothing and made the lens step. We still emit a
+            # packet every loop (~60 Hz heartbeat) below so the browser never starves.
             rid = recognizer.result_id
             if rid != last_rid:
                 last_rid = rid
@@ -213,7 +211,7 @@ def run_detector(cfg, preview: bool) -> str:
                     committed = "searching"
                     present = False
 
-            # ~60 Hz OSC heartbeat; position only advances on a fresh inference.
+            # ~60 Hz heartbeat; position only advances on a fresh inference.
             if present:
                 sender.send_hand(mapped[0], mapped[1], True, committed)
             else:
@@ -245,7 +243,7 @@ def run_detector(cfg, preview: bool) -> str:
                 if key in (ord('c'), ord('C')):
                     return _RECALIBRATE
 
-            # Rate cap: never flood Unity faster than its render rate.
+            # Rate cap: never flood the browser faster than its render rate.
             sleep = frame_budget - (time.monotonic() - loop_start)
             if sleep > 0:
                 time.sleep(sleep)

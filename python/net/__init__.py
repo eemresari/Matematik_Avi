@@ -1,60 +1,16 @@
-"""Gönderici (sender) katmanı: OSC (Unity) ve/veya WebSocket (tarayıcı).
+"""Gönderici (sender) katmanı: WebSocket (tarayıcı).
 
-create_sender(cfg) config.json'daki net.transport'a göre seçer:
-    "osc"  (varsayılan, geriye uyumlu) -> OscSender        (Unity)
-    "ws"                               -> WsSender          (tarayıcı)
-    "both"                             -> CompositeSender   (ikisi birden)
-
-Hepsi aynı arayüzü sunar: send_hand(nx,ny,present,gesture) / send_absent(last_nx,last_ny).
-websockets bağımlılığı yalnızca ws|both seçildiğinde import edilir; eski 'osc'
-kurulumları websockets kurulmadan çalışmaya devam eder.
+Unity/OSC hattı kaldırıldı (2026-09-15, plan G1) — oyun tamamen web'e
+göçtüğü için `create_sender` artık tek bir uygulama döndürür. Arayüz
+(`send_hand` / `send_absent` / `close`) korunur ki `main.py`'de hiçbir
+çağrı yeri değişmesin.
 """
 
-class CompositeSender:
-    """Birden çok göndericiye aynı çağrıyı iletir (transport='both')."""
-
-    def __init__(self, senders):
-        self._senders = [s for s in senders if s is not None]
-
-    def send_hand(self, nx, ny, present, gesture):
-        for s in self._senders:
-            s.send_hand(nx, ny, present, gesture)
-
-    def send_absent(self, last_nx, last_ny):
-        for s in self._senders:
-            s.send_absent(last_nx, last_ny)
-
-    def close(self):
-        for s in self._senders:
-            close = getattr(s, "close", None)
-            if callable(close):
-                close()
+from .ws_sender import WsSender
 
 
-def create_sender(cfg):
-    net = cfg.get("net", None)
-    transport = str(getattr(net, "transport", "osc") if net is not None else "osc").lower()
-
-    if transport in ("ws", "both"):
-        from .ws_sender import WsSender  # lazy: websockets sadece burada gerekir
-        ws = WsSender(cfg)
-        if transport == "ws":
-            return ws
-        from .osc_sender import OscSender  # lazy: pythonosc sadece osc|both'ta gerekir
-        return CompositeSender([OscSender(cfg), ws])
-
-    from .osc_sender import OscSender      # "osc" / varsayılan / bilinmeyen
-    return OscSender(cfg)                   # -> mevcut Unity davranışı
+def create_sender(cfg) -> WsSender:
+    return WsSender(cfg)
 
 
-def __getattr__(name):  # `from net import OscSender` hâlâ çalışsın (tembel; pythonosc gerektirmez)
-    if name == "OscSender":
-        from .osc_sender import OscSender
-        return OscSender
-    if name == "WsSender":
-        from .ws_sender import WsSender
-        return WsSender
-    raise AttributeError(f"module 'net' has no attribute {name!r}")
-
-
-__all__ = ["OscSender", "WsSender", "CompositeSender", "create_sender"]
+__all__ = ["WsSender", "create_sender"]

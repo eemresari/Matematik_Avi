@@ -10,16 +10,6 @@ python/models/*.task
 # Per-site calibration (regenerate with: python main.py --calibrate)
 python/calib.json
 
-# Unity (if you turn unity/ into a full project)
-unity/Library/
-unity/Temp/
-unity/Obj/
-unity/Build/
-unity/Logs/
-unity/UserSettings/
-*.csproj
-*.sln
-
 # Python virtual environments (custom-named; see .venv/ venv/ above)
 tools/genv/
 tools/imgenv/
@@ -28,3 +18,13 @@ tools/imgenv/
 python/*.log
 python/*.log.err
 python/_vs_*.txt
+
+# Lisans hatti: ozel anahtar/aktivasyon repo DISINDA durur, buraya asla girmez
+.luden-lisans/
+*.key
+lisans.dat
+lisanslar.json
+
+# Build ciktilari (Nuitka standalone + web.pak + kurucu + ZIP)
+build/
+dist/

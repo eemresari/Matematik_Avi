@@ -44,7 +44,7 @@ def load_config(path: str = "config.json") -> _NS:
         data = json.load(fh)
 
     # Minimal sanity checks so a typo surfaces immediately, not 200 lines later.
-    for section in ("osc", "camera", "detection", "active_player",
+    for section in ("net", "camera", "detection", "active_player",
                     "gesture_fsm", "smoothing", "calibration"):
         if section not in data:
             raise KeyError(f"config.json is missing the '{section}' section")
