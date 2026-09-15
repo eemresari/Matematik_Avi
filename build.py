@@ -421,6 +421,18 @@ def nuitka_command(onefile: bool, output_dir: str) -> list:
         # derleme aninda hic cozulemez; oldugunda da lazy import'un takip
         # edildigine guvenmek yerine acikca listeliyoruz.
         "--include-module=main",
+        # Oyun ici "Kamera Ayarlari" (2026-09-16): main.py artik calisirken
+        # camera_settings'i fonksiyon icinde import ediyor (ayarlar
+        # sekmesinden tetiklenince). Eskiden bu dosya EXE'ye hic girmiyordu
+        # (musteri kendi Python'uyla Kamera-Ayarlari.bat'tan calistiriyordu);
+        # simdi acikca listelenmezse lazy import derlemede gorunmeyebilir.
+        "--include-module=camera_settings",
+        # tkinter (camera_settings'in GUI'si) Nuitka'nin resmi eklentisi
+        # olmadan Tcl/Tk calisma zamani dosyalarini standalone'a almaz —
+        # derleme yesil cikip pencere acilirken sessizce patlayan tur bir
+        # hata. Pillow (PIL.Image/ImageTk) canli onizleme icin ayrica lazim.
+        "--enable-plugin=tk-inter",
+        "--include-package=PIL",
         # net.ws_sender G0 spike'inde acikca listelendi: gorunurde gereksiz
         # (net/__init__.py onu ustte import ediyor, Nuitka zaten takip eder)
         # ama testle kilitlenebilir bir sozlesme olsun diye acik tutuluyor.

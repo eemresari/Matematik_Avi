@@ -354,12 +354,16 @@
     // İlk karşılama: biyometrik kalibrasyon ekranı (yalnızca açılışta gösterilir).
     // Tamamlanınca ana ekrana (BAŞLA) geçilir. ?calib=off ile atlanır (test).
     const calibOff = new URLSearchParams(location.search).get("calib") === "off";
+    // El taratma bitince (ya da ?calib=off ile atlanınca) ayarlar dişlisi
+    // belirir — kalibrasyon ve kamera ayarları o zamana kadar erişilmez
+    // (mk-stage üstünde tıklanabilir bir öge olmasın diye).
     if (MA.calib && !calibOff) {
       setScreen("calibration");        // 3 oyun ekranı da gizli kalır -> onFrame no-op
-      MA.calib.boot(enterAttract);     // tarama bitince attract'a geç + overlay'i gizle
+      MA.calib.boot(() => { enterAttract(); if (MA.settings) MA.settings.reveal(); });
     } else {
       if (MA.calib) MA.calib.hide();
       enterAttract();                  // ekranı kur + buton merkezlerini cache'le
+      if (MA.settings) MA.settings.reveal();
     }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

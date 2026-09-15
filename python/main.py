@@ -12,6 +12,9 @@ Usage (run from this 'python/' folder):
     python main.py --config foo.json
 
 Hotkeys in the preview window:  ESC = quit,  C = recalibrate.
+Same two actions (recalibrate, camera settings) are also reachable without a
+preview window, from the browser's in-game settings tab (web/js/settings.js)
+over the WebSocket command channel handled in net/ws_sender.py.
 """
 
 from __future__ import annotations
@@ -45,6 +48,7 @@ from net import create_sender
 
 _QUIT = "quit"
 _RECALIBRATE = "recalibrate"
+_CAMERA_SETTINGS = "camera_settings"
 
 # MediaPipe Hands 21-point skeleton topology (drawn in the preview overlay).
 _HAND_CONNECTIONS = (
@@ -243,6 +247,17 @@ def run_detector(cfg, preview: bool) -> str:
                 if key in (ord('c'), ord('C')):
                     return _RECALIBRATE
 
+            # Tarayıcıdaki ayarlar sekmesinden gelen komutlar (2026-09-16):
+            # önizleme penceresi olmasa bile (sergi = --no-preview) çalışmalı,
+            # bu yüzden preview bloğunun DIŞINDA, her karede yoklanır.
+            poll = getattr(sender, "poll_commands", None)
+            if poll is not None:
+                for cmd in poll():
+                    if cmd == "kalibrasyon":
+                        return _RECALIBRATE
+                    if cmd == "kamera_ayarlari":
+                        return _CAMERA_SETTINGS
+
             # Rate cap: never flood the browser faster than its render rate.
             sleep = frame_budget - (time.monotonic() - loop_start)
             if sleep > 0:
@@ -255,6 +270,21 @@ def run_detector(cfg, preview: bool) -> str:
             _close()   # WS sunucusunu kapat / portu serbest bırak (recalibrate yeniden-başlatması için)
         if preview:
             cv2.destroyAllWindows()
+
+
+def _kamera_ayarlarini_ac() -> None:
+    """Oyun içi 'Kamera Ayarları' komutuyla tetiklenir.
+
+    run_detector()'ın finally bloğu kamerayı zaten serbest bırakmış olur
+    (bu fonksiyon ancak run_detector dönünce çağrılır) — camera_settings'in
+    kendi cv2.VideoCapture'ı ile çakışma yok. Pencere kapanınca config.json
+    güncellenmiş olabilir; çağıran taraf cfg'yi yeniden yüklemeli.
+    """
+    try:
+        import camera_settings
+        camera_settings.run_gui()
+    except Exception as exc:  # noqa: BLE001 — sergi çökmesin, sadece logla
+        print(f"[main] kamera ayarlari penceresi acilamadi: {exc!r}")
 
 
 def _yollari_coz(cfg) -> None:
@@ -304,6 +334,13 @@ def main(argv=None) -> int:
         if action == _RECALIBRATE:
             run_calibration(cfg)
             continue   # restart detector; Homography reloads the new calib.json
+        if action == _CAMERA_SETTINGS:
+            _kamera_ayarlarini_ac()
+            # camera_settings config.json'a yazdı; bellekteki cfg'yi tazele
+            # (create_camera yalnızca cfg nesnesine bakar, dosyayı değil).
+            cfg = load_config(args.config or paths.config_path())
+            _yollari_coz(cfg)
+            continue
         break
     return 0
 

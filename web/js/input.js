@@ -87,6 +87,7 @@
   // varsayılan `mouse` ve dedektör kapalıyken konsol her 5 sn'de bir
   // ERR_CONNECTION_REFUSED basardı.
   let wsBasladi = false;
+  let soket = null;   // aktif bağlantı — ayarlar sekmesi komut göndermek için okur
 
   function wsBaslat() {
     if (wsBasladi) return;
@@ -100,6 +101,7 @@
       let ws;
       try { ws = new WebSocket(url); }
       catch (e) { return retry(); }
+      soket = ws;
 
       ws.onopen = () => { backoff = 1000; };
       ws.onmessage = (ev) => {
@@ -112,7 +114,7 @@
           hand.gesture = m.gesture === "fist" ? "fist" : "open";
         } catch (_) { /* bozuk kare yoksay */ }
       };
-      ws.onclose = () => { if (driver === "ws") hand.present = false; retry(); };
+      ws.onclose = () => { if (driver === "ws") hand.present = false; if (soket === ws) soket = null; retry(); };
       ws.onerror = () => { try { ws.close(); } catch (_) {} };
     }
     function retry() {
@@ -120,6 +122,16 @@
       backoff = Math.min(backoff * 1.7, 5000); // üstel backoff, ~5s tavan
     }
     connect();
+  }
+
+  // ---------------- KOMUT KANALI (ayarlar sekmesi -> dedektör) ----------------
+  // Aynı soket, TERS yön: el konumu okuma bağlantısı zaten açık/kalıcı,
+  // ikinci bir bağlantı açmaya gerek yok. Bağlı değilse false döner —
+  // çağıran taraf (settings.js) bunu "dedektöre ulaşılamadı" diye gösterir.
+  function sendCmd(cmd) {
+    if (!soket || soket.readyState !== WebSocket.OPEN) return false;
+    try { soket.send(JSON.stringify({ cmd })); return true; }
+    catch (_) { return false; }
   }
 
   function start() {
@@ -139,6 +151,8 @@
     hand,
     start,
     setDriver,
+    sendCmd,
     get driver() { return driver; },
+    get connected() { return !!soket && soket.readyState === WebSocket.OPEN; },
   };
 })();

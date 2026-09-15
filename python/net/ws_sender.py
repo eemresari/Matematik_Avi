@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import queue
 import threading
 
 try:
@@ -41,6 +42,7 @@ class WsSender:
         self._clients = set()
         self._loop = None
         self._server = None
+        self._cmd_queue: "queue.Queue[str]" = queue.Queue()
         self._ready = threading.Event()
         self._thread = threading.Thread(target=self._run, name="ws-sender", daemon=True)
         self._thread.start()
@@ -76,9 +78,23 @@ class WsSender:
     async def _handler(self, ws, *args):  # *args: eski websockets sürümlerindeki 'path'
         self._clients.add(ws)
         try:
-            await ws.wait_closed()
+            # Tarayıcı -> dedektör komut kanalı (2026-09-16, oyun içi ayarlar
+            # sekmesi): "el konumu" akışıyla AYNI soket, ters yönde. async for
+            # hem gelen mesajları okur hem de wait_closed() ile aynı şekilde
+            # bağlantı kapanana kadar bloklar.
+            async for message in ws:
+                self._on_message(message)
         finally:
             self._clients.discard(ws)
+
+    def _on_message(self, raw) -> None:
+        try:
+            msg = json.loads(raw)
+        except (ValueError, TypeError):
+            return
+        cmd = msg.get("cmd") if isinstance(msg, dict) else None
+        if cmd:
+            self._cmd_queue.put(str(cmd))
 
     async def _broadcast(self, msg: str) -> None:
         if not self._clients:
@@ -107,6 +123,21 @@ class WsSender:
     def send_absent(self, last_nx: float, last_ny: float) -> None:
         """Aktif oyuncu yok: kursoru park et, arama durumunu zorla (OscSender ile aynı)."""
         self.send_hand(last_nx, last_ny, False, SEARCHING)
+
+    def poll_commands(self) -> list[str]:
+        """Son yoklamadan beri tarayıcıdan gelen komutları döndür (bloklamaz).
+
+        main.py'nin 60 Hz döngüsünden her karede çağrılır; ws-sender thread'i
+        _on_message ile buraya yazar, ana thread burada okur (queue.Queue
+        zaten thread-safe, ekstra kilit gerekmez).
+        """
+        out: list[str] = []
+        while True:
+            try:
+                out.append(self._cmd_queue.get_nowait())
+            except queue.Empty:
+                break
+        return out
 
     def close(self) -> None:
         """Sunucuyu temiz kapat ve portu serbest bırak (recalibrate yeniden-başlatması için kritik)."""
