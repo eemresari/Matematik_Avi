@@ -78,6 +78,13 @@ def test_donmusta_model_exe_yaninda(donmus):
                                               "hand_landmarker.task")
 
 
+def test_donmusta_ornek_config_ADI_config_json_DEGIL(donmus):
+    """Sablon 'config.json' adiyla girerse G9'un dist taramasi onu da
+    yasakli sayar (VERI_DOSYALARI 'config.json'u kapsiyor)."""
+    assert os.path.basename(paths.ornek_config_path()) != "config.json"
+    assert paths.ornek_config_path() == os.path.join(str(donmus), "config.ornek.json")
+
+
 # ---------------- ortam degiskeni ezmesi ----------------
 
 def test_env_veri_kokunu_ezer(monkeypatch, tmp_path):

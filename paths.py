@@ -78,9 +78,15 @@ def ornek_config_path() -> str:
     Şablonun yeri veri kökünden BAĞIMSIZDIR. Veri kökü ezildiğinde (taşınabilir
     kurulum, testler) şablon yine depodaki `python/config.json`'dır; aksi halde
     şablon hedefin kendisi olur ve tohumlama sessizce hiçbir şey yapmaz.
+
+    Donmuşta dosya adı BİLEREK `config.json` DEĞİL `config.ornek.json`:
+    `VERI_DOSYALARI` (üstte) "config.json" adının kurucuya asla girmemesini
+    şart koşuyor — kurulum makinesinin kamera indeksini taşıyan gerçek dosyayla
+    aynı adı taşısaydı, G9'un dist taraması meşru şablonu da yasaklı sayardı.
     """
-    kok = resource_root() if FROZEN else os.path.join(_KOK, "python")
-    return os.path.join(kok, "config.json")
+    if FROZEN:
+        return os.path.join(resource_root(), "config.ornek.json")
+    return os.path.join(_KOK, "python", "config.json")
 
 
 def calib_path(ad: str = "calib.json") -> str:
