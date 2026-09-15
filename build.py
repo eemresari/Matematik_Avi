@@ -70,6 +70,15 @@ DIST_YASAK_UZANTI = (".key",)
 MODEL_REL = os.path.join("python", "models", paths.MODEL_ADI)
 CONFIG_ORNEK_REL = os.path.join("python", "config.json")
 
+# Dedektor (main, net, camera, detection, gesture, mapping, selection,
+# smoothing, config) python/ altinda, kokte DEGIL. `matematik.py` bu klasoru
+# calisma aninda sys.path'e ekliyor (satir 31-33) ama Nuitka statik analiz
+# yapar: o satirlar derleme sirasinda CALISMAZ. PYTHONPATH ile ayni yolu
+# derleyiciye de vermezsek Nuitka "failed to locate module 'net.ws_sender'"
+# deyip durur — ya da o bayrak kaldirilirsa sessizce dedektorsuz bir EXE
+# uretir (kamera hic acilmaz, traceback yok).
+PY_DIR = os.path.join(ROOT, "python")
+
 # Sadece JS'i obfuscate ederiz; fontlar (.woff2) zaten ikili/minify.
 WEB_JS_KOK = "js"
 
@@ -353,6 +362,18 @@ def kurucu_uret(dist_dir: str) -> int:
     return 0
 
 
+def nuitka_env() -> dict:
+    """Nuitka'nin modul arama yolu = calistiran yorumlayicinin sys.path'i.
+
+    PY_DIR'i PYTHONPATH'e koyarak derleyiciye `matematik.py`'nin calisma
+    aninda kurdugu yolun aynisini veriyoruz. Mevcut PYTHONPATH korunur.
+    """
+    env = dict(os.environ)
+    onceki = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = PY_DIR + (os.pathsep + onceki if onceki else "")
+    return env
+
+
 def nuitka_command(onefile: bool, output_dir: str) -> list:
     """Nuitka komut satırı. Native bagimliliklarin her biri bilerek listelendi."""
     cmd = [
@@ -395,6 +416,11 @@ def nuitka_command(onefile: bool, output_dir: str) -> list:
         "--include-module=surum",
         "--include-module=paths",
         "--include-package=cryptography",
+        # Dedektorun govdesi (python/main.py) matematik.py'de fonksiyon icinde
+        # `import main as dedektor` diye cagriliyor. PYTHONPATH olmadan bu ad
+        # derleme aninda hic cozulemez; oldugunda da lazy import'un takip
+        # edildigine guvenmek yerine acikca listeliyoruz.
+        "--include-module=main",
         # net.ws_sender G0 spike'inde acikca listelendi: gorunurde gereksiz
         # (net/__init__.py onu ustte import ediyor, Nuitka zaten takip eder)
         # ama testle kilitlenebilir bir sozlesme olsun diye acik tutuluyor.
@@ -482,7 +508,7 @@ def main(argv=None) -> int:
     cmd = nuitka_command(args.onefile, args.out)
     print("[build] " + " ".join(cmd) + "\n")
     print("[build] Ilk derleme 10+ dakika surebilir.\n")
-    rc = subprocess.call(cmd, cwd=ROOT)
+    rc = subprocess.call(cmd, cwd=ROOT, env=nuitka_env())
     if rc != 0:
         return rc
 

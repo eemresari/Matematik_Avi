@@ -7,6 +7,7 @@ web.pak + ham lisans ekrani gider. Damga degerleri surum.py'den gelir.
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -67,6 +68,29 @@ def test_websockets_paketi_ZORUNLU_eklenir():
     Bayraksiz belirti YOK — derleme yesil, EXE calisir GORUNUR, WS portu
     hic acilmaz. Bu yuzden en kritik bayrak budur."""
     assert "--include-package=websockets" in _komut()
+
+
+def test_dedektor_modulu_acikca_eklenir():
+    """python/main.py matematik.py'de fonksiyon icinde import ediliyor."""
+    assert "--include-module=main" in _komut()
+
+
+def test_PYTHONPATH_python_klasorunu_tasir():
+    """Dedektor (main, net, camera, ...) python/ altinda, kokte degil.
+
+    matematik.py o klasoru CALISMA ANINDA sys.path'e ekler; Nuitka ise statik
+    analiz yapar. PYTHONPATH verilmezse derleme 'failed to locate module
+    net.ws_sender' ile durur (11 Eylul'de oldu). Bayrak kaldirilirsa da EXE
+    dedektorsuz cikar: kamera hic acilmaz, traceback yok.
+    """
+    env = build.nuitka_env()
+    assert build.PY_DIR in env["PYTHONPATH"].split(os.pathsep)
+
+
+def test_PYTHONPATH_mevcut_degeri_EZMEZ(monkeypatch):
+    monkeypatch.setenv("PYTHONPATH", "/onceki/yol")
+    parcalar = build.nuitka_env()["PYTHONPATH"].split(os.pathsep)
+    assert build.PY_DIR in parcalar and "/onceki/yol" in parcalar
 
 
 def test_mediapipe_cv2_paket_verisi_eklenir():
