@@ -1,8 +1,8 @@
 # Python Detektörü
 
 Web kamerasından eli algılar, aktif oyuncuyu seçer, jesti (açık/yumruk) ve
-konumu çıkarır, homografi ile duvara eşler, yumuşatır ve Unity'ye OSC ile
-gönderir.
+konumu çıkarır, homografi ile duvara eşler, yumuşatır ve tarayıcıdaki oyuna
+WebSocket ile gönderir.
 
 ## Kurulum
 
@@ -64,7 +64,7 @@ Tüm parametreler `config.json` içinde. En çok dokunacakların:
 
 | Bölüm | Anahtar | Ne işe yarar |
 |---|---|---|
-| `osc` | `port` | Unity'deki `HandReceiver` portu ile aynı olmalı (varsayılan 9000). |
+| `net` | `ws_port` | Tarayıcı istemcisinin bağlandığı WebSocket portu (varsayılan 8765). |
 | `camera` | `device_index` | Birden çok kamera varsa hangisi (0,1,...). |
 | `camera` | `flip_horizontal` | Ayna düzeltmesi. El sağa giderken daire sola kayıyorsa değiştir. |
 | `detection` | `num_hands` | Kalabalıkta aday el sayısı (2–4 önerilir). |
@@ -86,7 +86,7 @@ Tüm parametreler `config.json` içinde. En çok dokunacakların:
 - **`Hand model not found`** → `python download_model.py` çalıştır.
 - **El belli bir uzaklıktan sonra algılanmıyor** → mesafe kilidi kaldırıldı; menzil artık MediaPipe güvenine bağlı. Daha uzağı için `detection.min_hand_detection_confidence` ve `min_tracking_confidence`'ı düşür (ör. 0.45→0.3); çok düşürmek hayalet algılama yapar.
 - **Kamera açılmıyor** → başka uygulama kamerayı kullanıyor olabilir; `device_index`'i dene.
-- **Daire ters yönde** → `camera.flip_horizontal`'ı veya Unity'de `SpotlightController.flipY`'yi değiştir; kalibrasyonu flip değiştikten sonra **tekrar** yap.
+- **Daire ters yönde** → `camera.flip_horizontal`'ı değiştir; kalibrasyonu flip değiştikten sonra **tekrar** yap.
 - **`import mediapipe` hatası** → yukarıdaki Python 3.12 sanal ortam notuna bak.
 - **Daire titriyor / geç kalıyor** → One Euro ayarı (yukarı).
 - **Daire arka plandaki birine atlıyor** → `active_player.steal_ratio`'yu artır (yakındaki elin devralması zorlaşır), `roi_*` bölgesini daralt. (Not: mesafe kilidi kaldırıldığı için uzaktaki tek el de seçilir; tek oyuncu senaryosunda bu istenen davranıştır.)
